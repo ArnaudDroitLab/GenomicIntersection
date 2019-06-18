@@ -1,50 +1,16 @@
-#' Internal exclusive overlap.
-#'
-#' Returns the set of regions within \code{all.regions} where all
-#' conditions/proteins at indices which.factors are present,
-#' and no other factors are. Presence/absence at a given locus
-#' is obtained from the \code{overlap.matrix} parameter.
-#'
-#' @param all.regions A \linkS4class{GRanges} object with the regions represented
-#    by the rows of \code{overlap.matrix}.
-#' @param overlap.matrix A matrix, with rows corresponding to regions
-#'   in \code{all.rgions}, and columns corresponding to proteins/factors. A
-#'   non-zero value in the matrix indicates the protein/factor of interest
-#'   is present at this region.
-#' @param which.factors Indices of columns where the factor should be present.
-#' @return A \linkS4class{GRanges} object with the regions matching the given criteria.
-exclusive.overlap.internal <- function(overlap.matrix, which.factors) {
-    has.factor = rep(TRUE, nrow(overlap.matrix))
-    if(sum(which.factors) != 0) {
-        has.factor = apply(overlap.matrix[,  which.factors, drop=FALSE] >= 1, 1, all)
+
+
+preprocess_indices <- function(x, indices) {
+    if(is(indices, "character")) {
+        indices = names(x) %in% indices
+    } else if(is(indices, "numeric")) {
+        logical_indices = rep(FALSE, length(x))
+        logical_indices[indices] = TRUE
+        indices = logical_indices
     }
-
-    no.others = rep(TRUE, nrow(overlap.matrix))
-    if(sum(!which.factors) != 0) {
-        no.others  = apply(overlap.matrix[, !which.factors, drop=FALSE] == 0, 1, all)
-    }
-
-    return(has.factor & no.others)
-}
-
-#' Internal inclusive overlap.
-#'
-#' Returns the set of regions within \code{all.regions} where all
-#' conditions/proteins at indices which.factors are present,
-#' regardless of whether or not other factors are. Presence/absence
-#' at a given locus is obtained from the overlap.matrix parameter.
-#'
-#' @param all.regions A \linkS4class{GRanges} object with the regions represented
-#    by the rows of \code{overlap.matrix}.
-#' @param overlap.matrix A matrix, with rows corresponding to regions
-#'   in \code{all.rgions}, and columns corresponding to proteins/factors. A
-#'   non-zero value in the matrix indicates the protein/factor of interest
-#'   is present at this region.
-#' @param which.factors Indices of columns where the factor should be present.
-#' @return A \linkS4class{GRanges} object with the regions matching the given criteria.
-inclusive.overlap.internal <- function(overlap.matrix, which.factors) {
-    has.factor = apply(overlap.matrix[,  which.factors, drop=FALSE] >= 1, 1, all)
-    return(has.factor)
+    stopifnot(is(indices, "logical"))
+    
+    indices
 }
 
 #' Calculate an overlap of certain factors within an intersect.object.
@@ -62,28 +28,42 @@ inclusive.overlap.internal <- function(overlap.matrix, which.factors) {
 #    indices or names are the ONLY the factors present at that region.
 #' @return A \linkS4class{GRanges} object with the regions matching the given criteria.
 #' @export
-overlaps <- function(x, indices=names(x), exclusive=TRUE) {
-    stopifnot(is(x, "GenomicIntersection"))
-    
-    if(is(indices, "character")) {
-        indices = names(x) %in% indices
-    } else if(is(indices, "numeric")) {
-        logical_indices = rep(FALSE, length(x))
-        logical_indices[indices] = TRUE
-        indices = logical_indices
-    }
-    stopifnot(is(indices, "logical"))
+intersect_indices <- function(x, indices=names(x), exclusive=TRUE) {
+    stopifnot(is(x, "GenomicOverlap"))
+   
+    indices = preprocess_indices(indices)
     stopifnot(is(exclusive, "logical"))
     
-    if(exclusive) {
-        return(exclusive.overlap.internal(intersect_matrix(x), indices))
+    has.factor = apply(intersect_matrix(x)[, indices, drop=FALSE] >= 1, 1, all)
+
+    if(!exclusive) {
+        no.others = rep(TRUE, nrow(intersect_matrix(x)))
     } else {
-        return(inclusive.overlap.internal(intersect_matrix(x), indices))
+        no.others  = apply(intersect_matrix(x)[, !indices, drop=FALSE] == 0, 1, all)
     }
+
+    return(has.factor & no.others)
 }
 
-overlaps_regions <- function(x, indices=names(x), exclusive=TRUE) {
+intersect_regions <- function(x, indices=names(x), exclusive=TRUE) {
     res_indices = overlaps(x, indices, exclusive)
+    regions(x)[res_indices]
+}
+
+
+union_indices <- function(x, indices=names(x)) {
+    stopifnot(is(x, "GenomicOverlap"))
+    
+    indices = preprocess_indices(indices)
+    stopifnot(is(exclusive, "logical"))
+    
+    has.factor = apply(intersect_matrix(x)[, indices, drop=FALSE] >= 1, 1, any)
+    
+    return(has.factor)
+}
+
+union_regions <- function(x, indices=names(x)) {
+    res_indices = union_indices(x, indices, exclusive)
     regions(x)[res_indices]
 }
 
@@ -111,7 +91,7 @@ overlaps_regions <- function(x, indices=names(x), exclusive=TRUE) {
 #' @importFrom GenomicRanges mcols
 #' @importMethodsFrom GenomicRanges countOverlaps findOverlaps
 #' @export
-GenomicIntersection <- function(grl, keep.signal = FALSE) {
+GenomicOverlap <- function(grl, keep.signal = FALSE) {
     # Validate input parameters.
     stopifnot(is(grl, "GRangesList"))
     stopifnot(is(keep.signal, "logical"))
@@ -144,41 +124,41 @@ GenomicIntersection <- function(grl, keep.signal = FALSE) {
 
     if (keep.signal) mcols(all.regions) <- signal.df
 
-    new("GenomicIntersection",
+    new("GenomicOverlap",
         regions=all.regions, 
         matrix=overlap.matrix)
 }
 
-setClass("GenomicIntersection",
+setClass("GenomicOverlap",
          slots=list(regions="GRanges", 
                     matrix="matrix"))
 
 setMethod("names",
-          c(x="GenomicIntersection"),
+          c(x="GenomicOverlap"),
           function(x) {
             colnames(x@matrix)
           })
 
 setMethod("names<-",
-          c(x="GenomicIntersection", value="character"),
+          c(x="GenomicOverlap", value="character"),
           function(x, value) {
             colnames(x@matrix) <- value
             x
           })
           
 setMethod("length",
-          c(x="GenomicIntersection"),
+          c(x="GenomicOverlap"),
           function(x) {
             ncol(x@matrix)
           })          
 
 regions <- function(x) {
-    stopifnot(is(x, "GenomicIntersection"))
+    stopifnot(is(x, "GenomicOverlap"))
     x@regions
 }
 
 intersect_matrix <- function(x) {
-    stopifnot(is(x, "GenomicIntersection"))
+    stopifnot(is(x, "GenomicOverlap"))
     x@matrix
 }
 
@@ -489,4 +469,18 @@ region_consensus <- function(regions, keep.signal=TRUE, fake.signal=FALSE) {
     }
     
     return(consensus)
+}
+
+consensus_indices <- function(x, consensus_threshold) {
+    stopifnot(is(x, "GenomicOverlap"))
+    stopifnot(is(consensus_threshold, "numeric"))
+    
+    return((rowSums(x@matrix) / length(x)) > consensus_threshold)
+}
+
+consensus_regions <- function(x, consensus_threshold) {
+    stopifnot(is(x, "GenomicOverlap"))
+    res_indices = consensus_indices(x, consensus_threshold)
+    
+    return(x@regions[res_indices])
 }

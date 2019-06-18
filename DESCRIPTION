@@ -1,9 +1,8 @@
-Package: GenomicIntersection
-Title: GenomicIntersection
+Package: GenomicOverlaps
+Title: GenomicOverlaps
 Version: 0.99.0
 Authors@R: person("Eric", "Fournier", email = "Fournier.Eric.2@crchudequebec.ulaval.ca", role = c("aut", "cre"))
-Description: Various utilities for the bioinformatics tasks I have to perform
-    often.
+Description: Utility for calculating genomic overlaps.
 Imports:
     VennDiagram
 Depends:
