@@ -1,6 +1,6 @@
 #' Internal exclusive overlap.
 #'
-#' Returns the set of regions within code{all.regions} where all
+#' Returns the set of regions within \code{all.regions} where all
 #' conditions/proteins at indices which.factors are present,
 #' and no other factors are. Presence/absence at a given locus
 #' is obtained from the \code{overlap.matrix} parameter.
@@ -13,7 +13,7 @@
 #'   is present at this region.
 #' @param which.factors Indices of columns where the factor should be present.
 #' @return A \linkS4class{GRanges} object with the regions matching the given criteria.
-exclusive.overlap.internal <- function(all.regions, overlap.matrix, which.factors) {
+exclusive.overlap.internal <- function(overlap.matrix, which.factors) {
     has.factor = rep(TRUE, nrow(overlap.matrix))
     if(sum(which.factors) != 0) {
         has.factor = apply(overlap.matrix[,  which.factors, drop=FALSE] >= 1, 1, all)
@@ -24,7 +24,7 @@ exclusive.overlap.internal <- function(all.regions, overlap.matrix, which.factor
         no.others  = apply(overlap.matrix[, !which.factors, drop=FALSE] == 0, 1, all)
     }
 
-    return(all.regions[has.factor & no.others])
+    return(has.factor & no.others)
 }
 
 #' Internal inclusive overlap.
@@ -42,9 +42,9 @@ exclusive.overlap.internal <- function(all.regions, overlap.matrix, which.factor
 #'   is present at this region.
 #' @param which.factors Indices of columns where the factor should be present.
 #' @return A \linkS4class{GRanges} object with the regions matching the given criteria.
-inclusive.overlap.internal <- function(all.regions, overlap.matrix, which.factors) {
+inclusive.overlap.internal <- function(overlap.matrix, which.factors) {
     has.factor = apply(overlap.matrix[,  which.factors, drop=FALSE] >= 1, 1, all)
-    return(all.regions[has.factor])
+    return(has.factor)
 }
 
 #' Calculate an overlap of certain factors within an intersect.object.
@@ -62,21 +62,30 @@ inclusive.overlap.internal <- function(all.regions, overlap.matrix, which.factor
 #    indices or names are the ONLY the factors present at that region.
 #' @return A \linkS4class{GRanges} object with the regions matching the given criteria.
 #' @export
-intersect_overlap <- function(intersect.object, indices=NULL, names=NULL, exclusive=FALSE) {
-    if(is.null(indices) && is.null(names)) {
-       which.factors = rep(TRUE, intersect.object$Length)
-    } else if (!is.null(names)) {
-       which.factors = intersect.object$Names %in% names
-    } else {
-        which.factors = indices
+overlaps <- function(x, indices=names(x), exclusive=TRUE) {
+    stopifnot(is(x, "GenomicIntersection"))
+    
+    if(is(indices, "character")) {
+        indices = names(x) %in% indices
+    } else if(is(indices, "numeric")) {
+        logical_indices = rep(FALSE, length(x))
+        logical_indices[indices] = TRUE
+        indices = logical_indices
     }
+    stopifnot(is(indices, "logical"))
+    stopifnot(is(exclusive, "logical"))
+    
     if(exclusive) {
-        return(exclusive.overlap.internal(intersect.object$Region, intersect.object$Matrix, which.factors))
+        return(exclusive.overlap.internal(intersect_matrix(x), indices))
     } else {
-        return(inclusive.overlap.internal(intersect.object$Region, intersect.object$Matrix, which.factors))
+        return(inclusive.overlap.internal(intersect_matrix(x), indices))
     }
 }
 
+overlaps_regions <- function(x, indices=names(x), exclusive=TRUE) {
+    res_indices = overlaps(x, indices, exclusive)
+    regions(x)[res_indices]
+}
 
 #' Given a \linkS4class{GRangesList} object, determine which items overlap each others.
 #'
@@ -102,14 +111,16 @@ intersect_overlap <- function(intersect.object, indices=NULL, names=NULL, exclus
 #' @importFrom GenomicRanges mcols
 #' @importMethodsFrom GenomicRanges countOverlaps findOverlaps
 #' @export
-build_intersect <- function(grl, keep.signal = FALSE) {
+GenomicIntersection <- function(grl, keep.signal = FALSE) {
+    # Validate input parameters.
+    stopifnot(is(grl, "GRangesList"))
+    stopifnot(is(keep.signal, "logical"))
+    
     # Flatten the GRangesList so we can get a list of all possible regions.
-    #all.regions = biovizBase::flatGrl(GenomicRanges::reduce(unlist(grl)))
     all.regions = GenomicRanges::reduce(unlist(grl))
 
     # Build a matrix to hold the results.
     overlap.matrix <- matrix(0, nrow=length(all.regions), ncol=length(grl))
-    overlap.list = list()
 
     if (keep.signal){
       signal.df <- data.frame(matrix(nrow = length(all.regions), ncol = length(grl)))
@@ -119,24 +130,56 @@ build_intersect <- function(grl, keep.signal = FALSE) {
     # Loop over all ranges, intersecting them with the flattened list of all possible regions.
     for(i in 1:length(grl)) {
         overlap.matrix[,i] <- GenomicRanges::countOverlaps(all.regions, grl[[i]], type="any")
-        overlap.list[[ names(grl)[i] ]] <- which(overlap.matrix[,i] != 0)
 
         if (keep.signal){
-          indices <- findOverlaps(all.regions, grl[[i]])
+          indices <- GenomicRanges::findOverlaps(all.regions, grl[[i]])
           signal.values.df <- data.frame(from = indices@from, signal = grl[[i]]@elementMetadata@listData$signalValue[indices@to])
           if (nrow(signal.values.df) != 0 & sum(!is.na(signal.values.df$signal)) != 0){
             signal.values.df <- aggregate(signal~from, data = signal.values.df, FUN = mean, na.rm = TRUE)
             signal.df[signal.values.df$from, i] <- signal.values.df$signal
           }
-
         }
-
     }
     colnames(overlap.matrix) <-  names(grl)
 
     if (keep.signal) mcols(all.regions) <- signal.df
 
-    return(list(Regions = all.regions, Matrix=overlap.matrix, List=overlap.list, Names=colnames(overlap.matrix), Length=ncol(overlap.matrix)))
+    new("GenomicIntersection",
+        regions=all.regions, 
+        matrix=overlap.matrix)
+}
+
+setClass("GenomicIntersection",
+         slots=list(regions="GRanges", 
+                    matrix="matrix"))
+
+setMethod("names",
+          c(x="GenomicIntersection"),
+          function(x) {
+            colnames(x@matrix)
+          })
+
+setMethod("names<-",
+          c(x="GenomicIntersection", value="character"),
+          function(x, value) {
+            colnames(x@matrix) <- value
+            x
+          })
+          
+setMethod("length",
+          c(x="GenomicIntersection"),
+          function(x) {
+            ncol(x@matrix)
+          })          
+
+regions <- function(x) {
+    stopifnot(is(x, "GenomicIntersection"))
+    x@regions
+}
+
+intersect_matrix <- function(x) {
+    stopifnot(is(x, "GenomicIntersection"))
+    x@matrix
 }
 
 #' Generates a venn diagram from an \code{intersect.object}.
