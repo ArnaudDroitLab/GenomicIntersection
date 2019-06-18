@@ -1,0 +1,15 @@
+Package: GenomicIntersection
+Title: GenomicIntersection
+Version: 0.99.0
+Authors@R: person("Eric", "Fournier", email = "Fournier.Eric.2@crchudequebec.ulaval.ca", role = c("aut", "cre"))
+Description: Various utilities for the bioinformatics tasks I have to perform
+    often.
+Imports:
+    VennDiagram
+Depends:
+    R (>= 3.6),
+    GenomicRanges
+biocViews: Software
+License: GPL
+Encoding: UTF-8
+RoxygenNote: 6.1.1
