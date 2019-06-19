@@ -1,5 +1,6 @@
 
-
+# Function to peproces the indices parameters in the intersect_ and union_
+# functions.
 preprocess_indices <- function(x, indices) {
     if(is(indices, "character")) {
         indices = names(x) %in% indices
@@ -13,22 +14,19 @@ preprocess_indices <- function(x, indices) {
     indices
 }
 
-#' Calculate an overlap of certain factors within an intersect.object.
+#' Calculate the intersection of a set of elements within a 
+#' \linkS4class{GenomicOverlap} object.
 #'
-#' Given an \code{intersect.object} , finds all regions where all
-#' factors described by either indices or names are present.
-#' If both indices and names are \code{NULL}, the inner intersection
-#' is calculated.
-#'
-#' @param intersect.object An \code{intersect.object} returned by \code{\link{build_intersect}}.
-#'   by the rows of \code{overlap.matrix}.
-#' @param indices A vector of indices into the factors of \code{intersect.object}.
-#' @param names A vector of factor names in \code{intersect.object}.
-#' @param exclusive If \code{TRUE}, a region will be returned if the factors in
-#    indices or names are the ONLY the factors present at that region.
-#' @return A \linkS4class{GRanges} object with the regions matching the given criteria.
+#' @param x A \linkS4class{GenomicOverlap} object.
+#' @param indices The names of the elements from \code{x} whose intersection 
+#'                should be found.
+#' @param exclusive If \code{TRUE}, the returned intersection will exclude those 
+#'                  ranges where the elements from \code{indices} are not the
+#'                  only ones present.
+#' @return A vector of the numeric indices of the element of \code{regions(x)} 
+#'         which fit the given criteria.
 #' @export
-intersect_indices <- function(x, indices=names(x), exclusive=TRUE) {
+intersect_indices <- function(x, indices=names(x), exclusive=FALSE) {
     stopifnot(is(x, "GenomicOverlap"))
    
     indices = preprocess_indices(indices)
@@ -45,12 +43,32 @@ intersect_indices <- function(x, indices=names(x), exclusive=TRUE) {
     return(has.factor & no.others)
 }
 
+#' Calculate the intersection of a set of elements within a 
+#' \linkS4class{GenomicOverlap} object.
+#'
+#' @param x A \linkS4class{GenomicOverlap} object.
+#' @param indices The names of the elements from \code{x} whose intersection 
+#'                should be found.
+#' @param exclusive If \code{TRUE}, the returned intersection will exclude those 
+#'                  ranges where the elements from \code{indices} are not the
+#'                  only ones present.
+#' @return A \code{GRanges} objects containing the ranges from \code{regions(x)} 
+#'         which fit the given criteria.
+#' @export
 intersect_regions <- function(x, indices=names(x), exclusive=TRUE) {
     res_indices = overlaps(x, indices, exclusive)
     regions(x)[res_indices]
 }
 
-
+#' Calculate the union of a set of elements within a 
+#' \linkS4class{GenomicOverlap} object.
+#'
+#' @param x A \linkS4class{GenomicOverlap} object.
+#' @param indices The names of the elements from \code{x} whose union 
+#'                should be found.
+#' @return A vector of the numeric indices of the element of \code{regions(x)} 
+#'         which fit the given criteria.
+#' @export
 union_indices <- function(x, indices=names(x)) {
     stopifnot(is(x, "GenomicOverlap"))
     
@@ -62,12 +80,59 @@ union_indices <- function(x, indices=names(x)) {
     return(has.factor)
 }
 
+#' Calculate the union of a set of elements within a 
+#' \linkS4class{GenomicOverlap} object.
+#'
+#' @param x A \linkS4class{GenomicOverlap} object.
+#' @param indices The names of the elements from \code{x} whose union 
+#'                should be found.
+#' @return A \code{GRanges} objects containing the ranges from \code{regions(x)} 
+#'         which fit the given criteria.
+#' @export
 union_regions <- function(x, indices=names(x)) {
     res_indices = union_indices(x, indices, exclusive)
     regions(x)[res_indices]
 }
 
-#' Create a GenomicOverlap object.
+# Utility function which aggregates one meta-data clumn from grl and
+# returns a data-frame with aggregated values for each element of all_regions.
+import_column <- function(grl, all_regions, col_name, aggregate_func) {
+    # Apply import logic to each GRangesList item
+    gr_col = lapply(grl, function(x) {
+        
+        # Handle the empty-list case by specifying a default all-NA result.
+        col.values.vec = rep(NA, length(all_regions))
+        if(length(x) > 0) {
+            # Map final regions to initial regions
+            indices <- GenomicRanges::findOverlaps(all_regions, x)
+            
+            # Get column values in a data-frame along with their target
+            # index so we can identify which ones have a many-to-one
+            # mapping.
+            col.values.df <- data.frame(from = S4Vectors::from(indices), 
+                                        value = mcols(x)[[col_name]][S4Vectors::to(indices)])
+    
+            # Apply the summarizing function to all groups of values
+            # with the same target region.
+            col.values.df <- S4Vectors::aggregate(value~from,
+                                                  data = col.values.df, 
+                                                  FUN = aggregate_func)
+            
+            # Reorder everything in a vector so we can reassign it to the
+            # GRangesList mcols object.
+            col.values.vec[col.values.df$from] = col.values.df$value
+        }
+        
+        return(col.values.vec)
+    })
+    
+    col_df = do.call(cbind, gr_col)
+    colnames(col_df) <- paste0(col_name, ".", names(grl))
+    
+    return(col_df)
+}
+
+#' Create a \linkS4class{GenomicOverlap} object.
 #'
 #' Given a \linkS4class{GRangesList} object, determines which regions overlap 
 #' with each others. The input regions are "flattened", and all overlapping
@@ -98,56 +163,26 @@ GenomicOverlap <- function(grl, import_spec=list()) {
     stopifnot(all(names(import_spec) %in% names(mcols(grl))))
     
     # Flatten the GRangesList so we can get a list of all possible regions.
-    all.regions = GenomicRanges::reduce(unlist(grl))
+    all_regions = GenomicRanges::reduce(unlist(grl))
 
     # Build a matrix to hold the results.
-    overlap.matrix <- matrix(0, nrow=length(all.regions), ncol=length(grl))
+    overlap.matrix <- matrix(0, nrow=length(all_regions), ncol=length(grl))
 
     # Loop over all ranges, intersecting them with the flattened list of all possible regions.
     for(i in 1:length(grl)) {
-        overlap.matrix[,i] <- GenomicRanges::countOverlaps(all.regions, grl[[i]], type="any")
+        overlap.matrix[,i] <- GenomicRanges::countOverlaps(all_regions, grl[[i]], type="any")
     }
     colnames(overlap.matrix) <-  names(grl)
 
     # Import all columns in import list.
     for(col_name in names(import_spec)) {
-        # Apply import logic to each GRangesList item
-        gr_col = lapply(grl, function(x) {
-            
-            # Handle the empty-list case by specifying a default all-NA result.
-            col.values.vec = rep(NA, length(all.regions))
-            if(length(x) > 0) {
-                # Map final regions to initial regions
-                indices <- GenomicRanges::findOverlaps(all.regions, x)
-                
-                # Get column values in a data-frame along with their target
-                # index so we can identify which ones have a many-to-one
-                # mapping.
-                col.values.df <- data.frame(from = S4Vectors::from(indices), 
-                                            value = mcols(x)[[col_name]][S4Vectors::to(indices)])
-    
-                # Apply the summarizing function to all groups of values
-                # with the same target region.
-                col.values.df <- S4Vectors::aggregate(value~from,
-                                                      data = col.values.df, 
-                                                      FUN = import_spec[[col_name]])
-                
-                # Reorder everything in a vector so we can reassign it to the
-                # GRangesList mcols object.
-                col.values.vec[col.values.df$from] = col.values.df$value
-            }
-            
-            return(col.values.vec)
-        })
+        col_df = import_column(grl, all_regions, col_name, import_spec[[col_name]])
         
-        col_df = do.call(cbind, gr_col)
-        colnames(col_df) <- paste0(col_name, ".", names(grl))
-        
-        mcols(all.regions) <- cbind(mcols(all.regions), col_df)
+        mcols(all_regions) <- cbind(mcols(all_regions), col_df)
     }
 
     new("GenomicOverlap",
-        regions=all.regions, 
+        regions=all_regions, 
         matrix=overlap.matrix)
 }
 
@@ -172,20 +207,27 @@ setMethod("length",
           c(x="GenomicOverlap"),
           function(x) {
             ncol(x@matrix)
-          })          
-
-#' \item{Regions}{A \linkS4class{GRanges} object with all genomic ranges occupied by at least one item.
-#'   All ranges are "flattened", so if two of the initial ranges overlapped each other
-#'   imperfectly, they are combined into a single region spanning both of them.}
+          })   
+          
+#' Returns the combined regions from a \linkS4class{GenomicOverlap} object.
+#'
+#' @param x The \linkS4class{GenomicOverlap} object.
+#' @return A \code{GRanges} object representing the combined regions.
+#' @export
 regions <- function(x) {
     stopifnot(is(x, "GenomicOverlap"))
     x@regions
 }
 
-#' \item{Matrix}{A matrix, with \code{ncol=} the number of items in the initial \linkS4class{GRangesList} and \code{nrow=}
-#'   the total number of loci, which is equal to the length of \code{Regions}. A value of 1 or more
-#'   within the matrix indicates that the regions described by the column overlapped
-#'   the region defined by the row.}
+#' Returns the intersection matrix from a \linkS4class{GenomicOverlap} object.
+#'
+#' @param x The \linkS4class{GenomicOverlap} object.
+#' @return A matrix with has as many columns as the number of items in the 
+#'         initial \linkS4class{GRangesList}, and as many rows as the number of 
+#'         combined regions. Its values indicate how many regions from the 
+#'         initial \linkS4class{GRangesList} element map to each individual
+#'         combined range. 
+#' @export
 intersect_matrix <- function(x) {
     stopifnot(is(x, "GenomicOverlap"))
     x@matrix
