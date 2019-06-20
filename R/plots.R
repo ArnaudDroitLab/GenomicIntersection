@@ -5,82 +5,41 @@
 #'   to skip saving to a file.
 #' @return The grid object representing the venn.diagram.
 #' @importFrom VennDiagram venn.diagram
+#' @importFrom grid grid.draw
 #' @export
-intersect_venn_plot <- function(intersect.object, filename=NULL, title=NULL) {
-    if(intersect.object$Length > 5) {
+plot_venn <- function(x, title=NULL) {
+    stopifnot(is(x, "GenomicOverlap"))
+    
+    if(length(x) > 5) {
         stop("Cannot plot venn diagram of more than 5 groups!")
     }
 
-    return(VennDiagram::venn.diagram(intersect.object$List,
-                                     fill=c("red", "yellow", "green", "blue", "orange")[1:intersect.object$Length],
-                                     filename=filename,
+    fill_vec = c("red", "yellow", "green", "blue", "orange")[seq_along(x)]
+    grid_obj = VennDiagram::venn.diagram(intersect.object$List,
+                                     fill=fill_vec,
+                                     filename=NULL,
                                      print.mode="raw",
-                                     main=title))
+                                     main=title)
+    grid.draw(grid_obj)
 }
 
-#' Calculates enrichment ratios for quer regions against a genome wide
-#' partition of the genome.
-#'
-#' @param query.regions The regions whose enrichment ratios must be calculated.
-#' @param genome.wide The genome partition indicating which part of the genome
-#'    fall within which category. Each range should have a 'name' attribute
-#'    indicating its category.
-#' @param factor.order An optional ordering of the region types for the produced plot.
-#' @param file.out An optional file name for a graphical representation of the enrichments.
-#' @return A data-frame containing the enrichment values.
-#' @export
-#' @import GenomicRanges
-#' @import ggplot2
-region_enrichment <- function(query.regions, genome.wide, genome.order=NULL, file.out=NULL) {
-  # Project the query ranges into the genome ranges, so we can
-  # know their repartition with basepair precision.
-  in.query = project_ranges(query.regions, genome.wide)
-  
-  # Calculate total base-pair coverages for both the projected query 
-  # and the target regions.
-  all.region.types = sort(unique(genome.wide$name))
-  coverages = matrix(0.0, ncol=2, nrow=length(all.region.types), dimnames=list(all.region.types, c("Query", "Genome")))
-  for(region.type in all.region.types) {
-      coverages[region.type, "Genome"] = sum(as.numeric(width(reduce(BiocGenerics::subset(genome.wide, name == region.type)))))
-      coverages[region.type, "Query"]  = sum(as.numeric(width(reduce(BiocGenerics::subset(in.query, name == region.type)))))
-  }
 
-  # Transform the raw coverages into proportions.
-  proportions = t(apply(coverages, 1, '/', apply(coverages, 2, sum)))
-  
-  # Build a data frame for output/plotting.
-  enrichment.df = data.frame(QueryCoverage=coverages[,"Query"],
-                             GenomeCoverage=coverages[,"Genome"],
-                             QueryProportion=proportions[,"Query"],
-                             GenomeProportion=proportions[,"Genome"],
-                             Enrichment=log2(proportions[,"Query"] / proportions[,"Genome"]), 
-                             RegionType=all.region.types)
-  if(is.null(genome.order)) {
-    genome.order = all.region.types
-  }
-  enrichment.df$RegionType = factor(enrichment.df$RegionType, levels=rev(genome.order))
-  
-  # Plot the results.
-  if(!is.null(file.out)) {
+#' @import ggplot2
+#' @export
+plot_region_enrichment <- function(enrichment_df) {
     # Replace +/-Inf with NAs.
-    enrichment.df$Enrichment[is.infinite(enrichment.df$Enrichment)] <- NA
+    enrichment_df$Enrichment[is.infinite(enrichment_df$Enrichment)] <- NA
     
-    maxEnrich = max(abs(enrichment.df$Enrichment), na.rm=TRUE)
-    ggplot(enrichment.df, aes(fill=Enrichment, y=RegionType, x="Network regions")) +
+    maxEnrich = max(abs(enrichment_df$Enrichment), na.rm=TRUE)
+    ggplot(enrichment_df, aes(fill=Enrichment, y=RegionType, x="Network regions")) +
         geom_tile(color="black") + 
-        geom_text(mapping=aes(label=sprintf("%.2f", enrichment.df$Enrichment))) +
-        scale_fill_gradient2(low="dodgerblue", mid="white", high="red", midpoint=0, limits=c(-maxEnrich, maxEnrich)) +
+        geom_text(mapping=aes(label=sprintf("%.2f", enrichment_df$Enrichment))) +
+        scale_fill_gradient2(low="dodgerblue", mid="white", high="red",
+                             midpoint=0, limits=c(-maxEnrich, maxEnrich)) +
         labs(y="Region type", x=NULL) +
         theme(axis.line=element_blank(),
               axis.ticks=element_blank(),
               axis.title=element_blank())
-    
-    ggsave(file.out, width=7, height=7)
-    
-    write.table(enrichment.df, file=paste0(file.out, ".txt"), sep="\t", row.names=FALSE, col.names=TRUE)
-  }
-  
-  return(enrichment.df)
 }
 
 #' Performs region enrichment on a set of regions and returns summarized results.
@@ -110,7 +69,7 @@ multiple_region_enrichment <- function(queries.regions, genome.regions, query.or
         }
 
         results[[query]] = region_enrichment(queries.regions[[query]], genome.regions,
-                                             genome.order=genome.order, file.out=file.out)
+                                             genome_order=genome.order)
     }
     
     # Summarize the results and return them.

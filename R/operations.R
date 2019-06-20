@@ -64,3 +64,46 @@ collapse_regions <- function(grl) {
   return(unlist(GenomicRanges::GRangesList(collapsed.regions)))
 }
 
+#' Calculates enrichment ratios for query regions against a genome wide
+#' partition of the genome.
+#'
+#' @param query_regions The regions whose enrichment ratios must be calculated.
+#' @param genome_partition The genome partition indicating which part of the genome
+#'    fall within which category. Each range should have a 'name' attribute
+#'    indicating its category.
+#' @param genome_order An optional ordering of the region types.
+#' @return A data-frame containing the enrichment values.
+#' @import GenomicRanges
+#' @export
+region_enrichment <- function(query_regions, genome_partition, genome_order=NULL) {
+  # Project the query ranges into the genome ranges, so we can
+  # know their repartition with basepair precision.
+  in.query = project_ranges(query_regions, genome_partition)
+  
+  # Calculate total base-pair coverages for both the projected query 
+  # and the target regions.
+  all.region.types = sort(unique(genome_partition$name))
+  coverages = matrix(0.0, ncol=2, nrow=length(all.region.types), 
+                     dimnames=list(all.region.types, c("Query", "Genome")))
+  for(region.type in all.region.types) {
+      coverages[region.type, "Genome"] = sum(as.numeric(BiocGenerics::width(GenomicRanges::reduce(BiocGenerics::subset(genome_partition, name == region.type)))))
+      coverages[region.type, "Query"]  = sum(as.numeric(BiocGenerics::width(GenomicRanges::reduce(BiocGenerics::subset(in.query, name == region.type)))))
+  }
+
+  # Transform the raw coverages into proportions.
+  proportions = t(apply(coverages, 1, '/', apply(coverages, 2, sum)))
+  
+  # Build a data frame for output/plotting.
+  enrichment.df = data.frame(QueryCoverage=coverages[,"Query"],
+                             GenomeCoverage=coverages[,"Genome"],
+                             QueryProportion=proportions[,"Query"],
+                             GenomeProportion=proportions[,"Genome"],
+                             Enrichment=log2(proportions[,"Query"] / proportions[,"Genome"]), 
+                             RegionType=all.region.types)
+  if(is.null(genome_order)) {
+    genome_order = all.region.types
+  }
+  enrichment.df$RegionType = factor(enrichment.df$RegionType, levels=genome_order)
+  
+  return(enrichment.df)
+}

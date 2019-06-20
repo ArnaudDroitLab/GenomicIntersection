@@ -1,3 +1,14 @@
+#' GenomicOverlap objects represent the overlaps of multiple GRanges.
+#'
+#' Some details about this class and my plans for it in the body.
+#'
+#' @slot regions A GRanges object representing the combined regions.
+#' @slot matrix A matrix representing which elements overlap with the combined 
+#'              regions.
+#'
+#' @name GenomicOverlap-class
+#' @rdname GenomicOverlap-class
+#' @export
 setClass("GenomicOverlap",
          slots=list(regions="GRanges", 
                     matrix="matrix"))
@@ -212,7 +223,6 @@ union_indices <- function(x, indices=names(x)) {
     stopifnot(is(x, "GenomicOverlap"))
     
     indices = preprocess_indices(indices)
-    stopifnot(is(exclusive, "logical"))
     
     has.factor = apply(intersect_matrix(x)[, indices, drop=FALSE] >= 1, 1, any)
     
@@ -229,7 +239,7 @@ union_indices <- function(x, indices=names(x)) {
 #'         which fit the given criteria.
 #' @export
 union_regions <- function(x, indices=names(x)) {
-    res_indices = union_indices(x, indices, exclusive)
+    res_indices = union_indices(x, indices)
     regions(x)[res_indices]
 }
 

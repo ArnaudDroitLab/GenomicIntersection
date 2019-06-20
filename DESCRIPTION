@@ -4,7 +4,8 @@ Version: 0.99.0
 Authors@R: person("Eric", "Fournier", email = "Fournier.Eric.2@crchudequebec.ulaval.ca", role = c("aut", "cre"))
 Description: Utility for calculating genomic overlaps.
 Imports:
-    VennDiagram
+    VennDiagram,
+    ggplot2
 Depends:
     R (>= 3.6),
     GenomicRanges
