@@ -2,19 +2,18 @@
 % Please edit documentation in R/plots.R
 \name{plot_venn}
 \alias{plot_venn}
-\title{Generates a venn diagram from an \code{intersect.object}.}
+\title{Generates a venn diagram from a \linkS4class{GenomicOverlap} object.}
 \usage{
 plot_venn(x, title = NULL)
 }
 \arguments{
-\item{intersect.object}{An intersect object returned by \code{\link{build_intersect}}.}
+\item{x}{A \linkS4class{GenomicOverlap} object.}
 
-\item{filename}{A filename for the resulting venn diagram. Pass \code{NULL}
-to skip saving to a file.}
+\item{title}{A title for the generated venn diagram.}
 }
 \value{
 The grid object representing the venn.diagram.
 }
 \description{
-Generates a venn diagram from an \code{intersect.object}.
+Generates a venn diagram from a \linkS4class{GenomicOverlap} object.
 }

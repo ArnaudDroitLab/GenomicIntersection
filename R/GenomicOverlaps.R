@@ -13,19 +13,32 @@ setClass("GenomicOverlap",
          slots=list(regions="GRanges", 
                     matrix="matrix"))
 
+#' Returns the names of the elements of a \linkS4class{GenomicOverlap} object. 
+#'
+#' @param x The \linkS4class{GenomicOverlap} object.
+#' @return The names of the elements in \code{x}.
 setMethod("names",
           c(x="GenomicOverlap"),
           function(x) {
             colnames(x@matrix)
           })
 
+#' Set names of the elements of a \linkS4class{GenomicOverlap} object. 
+#'
+#' @param x The \linkS4class{GenomicOverlap} object.
+#' @param value The new names for the elements of the 
+#'              \linkS4class{GenomicOverlap} object.
 setMethod("names<-",
           c(x="GenomicOverlap", value="character"),
           function(x, value) {
             colnames(x@matrix) <- value
             x
           })
-          
+
+#' Returns the number of elements of a \linkS4class{GenomicOverlap} object. 
+#'
+#' @param x The \linkS4class{GenomicOverlap} object.
+#' @return The number of elements in \code{x}.        
 setMethod("length",
           c(x="GenomicOverlap"),
           function(x) {
@@ -91,13 +104,14 @@ import_column <- function(grl, all_regions, col_name, aggregate_func) {
 #' @return An object of class \code{GenomicOverlap}.
 #' @importFrom GenomicRanges reduce
 #' @importFrom GenomicRanges mcols
+#' @importFrom methods is
 #' @importMethodsFrom GenomicRanges countOverlaps findOverlaps
 #' @importMethodsFrom S4Vectors from to aggregate
 #' @export
 GenomicOverlap <- function(grl, import_spec=list()) {
     # Validate input parameters.
     stopifnot(is(grl, "GRangesList"))
-    stopifnot(is(keep.signal, "logical"))
+    stopifnot(is(import_spec, "list"))
     stopifnot(all(names(import_spec) %in% names(mcols(grl))))
     
     # Flatten the GRangesList so we can get a list of all possible regions.
@@ -119,15 +133,16 @@ GenomicOverlap <- function(grl, import_spec=list()) {
         mcols(all_regions) <- cbind(mcols(all_regions), col_df)
     }
 
-    new("GenomicOverlap",
-        regions=all_regions, 
-        matrix=overlap.matrix)
+    methods::new("GenomicOverlap",
+                 regions=all_regions, 
+                 matrix=overlap.matrix)
 }
           
 #' Returns the combined regions from a \linkS4class{GenomicOverlap} object.
 #'
 #' @param x The \linkS4class{GenomicOverlap} object.
 #' @return A \code{GRanges} object representing the combined regions.
+#' @importFrom methods is
 #' @export
 regions <- function(x) {
     stopifnot(is(x, "GenomicOverlap"))
@@ -142,6 +157,7 @@ regions <- function(x) {
 #'         combined regions. Its values indicate how many regions from the 
 #'         initial \linkS4class{GRangesList} element map to each individual
 #'         combined range. 
+#' @importFrom methods is
 #' @export
 intersect_matrix <- function(x) {
     stopifnot(is(x, "GenomicOverlap"))
@@ -151,6 +167,7 @@ intersect_matrix <- function(x) {
 
 # Function to peproces the indices parameters in the intersect_ and union_
 # functions.
+#' @importFrom methods is
 preprocess_indices <- function(x, indices) {
     if(is(indices, "character")) {
         indices = names(x) %in% indices
@@ -175,6 +192,7 @@ preprocess_indices <- function(x, indices) {
 #'                  only ones present.
 #' @return A vector of the numeric indices of the element of \code{regions(x)} 
 #'         which fit the given criteria.
+#' @importFrom methods is
 #' @export
 intersect_indices <- function(x, indices=names(x), exclusive=FALSE) {
     stopifnot(is(x, "GenomicOverlap"))
@@ -206,7 +224,7 @@ intersect_indices <- function(x, indices=names(x), exclusive=FALSE) {
 #'         which fit the given criteria.
 #' @export
 intersect_regions <- function(x, indices=names(x), exclusive=TRUE) {
-    res_indices = overlaps(x, indices, exclusive)
+    res_indices = intersect_indices(x, indices, exclusive)
     regions(x)[res_indices]
 }
 
@@ -218,6 +236,7 @@ intersect_regions <- function(x, indices=names(x), exclusive=TRUE) {
 #'                should be found.
 #' @return A vector of the numeric indices of the element of \code{regions(x)} 
 #'         which fit the given criteria.
+#' @importFrom methods is
 #' @export
 union_indices <- function(x, indices=names(x)) {
     stopifnot(is(x, "GenomicOverlap"))
@@ -250,6 +269,7 @@ union_regions <- function(x, indices=names(x)) {
 #'                            a given region for it to be selected.
 #' @return A vector of the numeric indices of the element of \code{regions(x)} 
 #'         which fit the given criteria.
+#' @importFrom methods is
 #' @export
 consensus_indices <- function(x, consensus_threshold) {
     stopifnot(is(x, "GenomicOverlap"))
@@ -265,6 +285,7 @@ consensus_indices <- function(x, consensus_threshold) {
 #'                            a given region for it to be selected.
 #' @return A \code{GRanges} objects containing the ranges from \code{regions(x)} 
 #'         which fit the given criteria.
+#' @importFrom methods is
 #' @export
 consensus_regions <- function(x, consensus_threshold) {
     stopifnot(is(x, "GenomicOverlap"))
@@ -281,6 +302,7 @@ consensus_regions <- function(x, consensus_threshold) {
 #' \code{x}. The row's element is used as the denominator. Therefore, the
 #' matrix is not symmetric.
 #'
+#' @importFrom methods is
 #' @export
 pairwise_overlap <- function(x) {
     stopifnot(is(x, "GenomicOverlap"))
