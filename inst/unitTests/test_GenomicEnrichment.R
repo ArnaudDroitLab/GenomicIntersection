@@ -1,7 +1,7 @@
 if(FALSE) {
     library( "RUnit" )
     library( "GenomicRanges" )
-    library( "GenomicOverlaps" )
+    library( "GenomicOperations" )
 }
 
 test1 = rtracklayer::import("C:/Dev/Projects/GenomicIntersection/inst/extData/enrichment_test_1.bed")

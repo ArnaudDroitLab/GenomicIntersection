@@ -1,8 +1,11 @@
-Package: GenomicOverlaps
-Title: GenomicOverlaps
+Package: GenomicOperations
+Title: GenomicOperations
 Version: 0.99.0
-Authors@R: person("Eric", "Fournier", email = "Fournier.Eric.2@crchudequebec.ulaval.ca", role = c("aut", "cre"))
-Description: Utility for calculating genomic overlaps.
+Authors@R: person("Eric", "Fournier", 
+                  email = "Fournier.Eric.2@crchudequebec.ulaval.ca", 
+                  role = c("aut", "cre"))
+Description: Utility for various genomic operations, including genomic overlaps 
+    and genemic enrichments.
 Imports:
     VennDiagram,
     ggplot2,
