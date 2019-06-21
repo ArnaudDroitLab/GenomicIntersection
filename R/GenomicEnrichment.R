@@ -186,6 +186,7 @@ enrichment_plot <- function(x) {
     plot_genomic_enrichment_metric(x, "Enrichment")
 }
 
+#' @import ggplot2
 #' @importFrom reshape2 melt
 plot_genomic_enrichment_metric <- function(x, metric="Enrichment") {
     if(metric=="Coverage") {

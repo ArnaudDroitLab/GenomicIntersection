@@ -2,12 +2,12 @@
 % Please edit documentation in R/GenomicOverlaps.R
 \name{intersect_matrix}
 \alias{intersect_matrix}
-\title{Returns the intersection matrix from a \linkS4class{GenomicOverlap} object.}
+\title{Returns the intersection matrix from a \linkS4class{GenomicOverlaps} object.}
 \usage{
 intersect_matrix(x)
 }
 \arguments{
-\item{x}{The \linkS4class{GenomicOverlap} object.}
+\item{x}{The \linkS4class{GenomicOverlaps} object.}
 }
 \value{
 A matrix with has as many columns as the number of items in the 
@@ -17,5 +17,5 @@ A matrix with has as many columns as the number of items in the
         combined range.
 }
 \description{
-Returns the intersection matrix from a \linkS4class{GenomicOverlap} object.
+Returns the intersection matrix from a \linkS4class{GenomicOverlaps} object.
 }

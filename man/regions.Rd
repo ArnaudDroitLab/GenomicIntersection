@@ -2,16 +2,16 @@
 % Please edit documentation in R/GenomicOverlaps.R
 \name{regions}
 \alias{regions}
-\title{Returns the combined regions from a \linkS4class{GenomicOverlap} object.}
+\title{Returns the combined regions from a \linkS4class{GenomicOverlaps} object.}
 \usage{
 regions(x)
 }
 \arguments{
-\item{x}{The \linkS4class{GenomicOverlap} object.}
+\item{x}{The \linkS4class{GenomicOverlaps} object.}
 }
 \value{
 A \code{GRanges} object representing the combined regions.
 }
 \description{
-Returns the combined regions from a \linkS4class{GenomicOverlap} object.
+Returns the combined regions from a \linkS4class{GenomicOverlaps} object.
 }

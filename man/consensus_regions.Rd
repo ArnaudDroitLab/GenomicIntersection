@@ -7,7 +7,7 @@
 consensus_regions(x, consensus_threshold)
 }
 \arguments{
-\item{x}{A \linkS4class{GenomicOverlap} object.}
+\item{x}{A \linkS4class{GenomicOverlaps} object.}
 
 \item{consensus_threshold}{The fraction of input regions which must have
 a given region for it to be selected.}

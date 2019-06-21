@@ -3,12 +3,12 @@
 \name{pairwise_overlap}
 \alias{pairwise_overlap}
 \title{Calculate the pairwise overlaps of all factors within a 
-\linkS4class{GenomicOverlap} object.}
+\linkS4class{GenomicOverlaps} object.}
 \usage{
 pairwise_overlap(x)
 }
 \arguments{
-\item{x}{A \linkS4class{GenomicOverlap} object.}
+\item{x}{A \linkS4class{GenomicOverlaps} object.}
 }
 \value{
 A matrix containing the pairwise overlaps of all elements in
@@ -17,5 +17,5 @@ matrix is not symmetric.
 }
 \description{
 Calculate the pairwise overlaps of all factors within a 
-\linkS4class{GenomicOverlap} object.
+\linkS4class{GenomicOverlaps} object.
 }

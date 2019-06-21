@@ -2,12 +2,12 @@
 % Please edit documentation in R/plots.R
 \name{plot_venn}
 \alias{plot_venn}
-\title{Generates a venn diagram from a \linkS4class{GenomicOverlap} object.}
+\title{Generates a venn diagram from a \linkS4class{GenomicOverlaps} object.}
 \usage{
 plot_venn(x, title = NULL)
 }
 \arguments{
-\item{x}{A \linkS4class{GenomicOverlap} object.}
+\item{x}{A \linkS4class{GenomicOverlaps} object.}
 
 \item{title}{A title for the generated venn diagram.}
 }
@@ -15,5 +15,5 @@ plot_venn(x, title = NULL)
 The grid object representing the venn.diagram.
 }
 \description{
-Generates a venn diagram from a \linkS4class{GenomicOverlap} object.
+Generates a venn diagram from a \linkS4class{GenomicOverlaps} object.
 }

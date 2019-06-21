@@ -4,9 +4,9 @@ if(FALSE) {
     library( "GenomicOperations" )
 }
 
-test1 = rtracklayer::import("C:/Dev/Projects/GenomicIntersection/inst/extData/enrichment_test_1.bed")
-test2 = rtracklayer::import("C:/Dev/Projects/GenomicIntersection/inst/extData/enrichment_test_2.bed")
-partition = rtracklayer::import("C:/Dev/Projects/GenomicIntersection/inst/extData/partition.bed")
+test1 = rtracklayer::import(system.file("extData/enrichment_test_1.bed", package="GenomicOperations"))
+test2 = rtracklayer::import(system.file("extData/enrichment_test_2.bed", package="GenomicOperations"))
+partition = rtracklayer::import(system.file("extData/partition.bed", package="GenomicOperations"))
 
 test.GenomicEnrichment <- function() {
     test_grl = GRangesList(Test1=test1, Test2=test2)
@@ -27,11 +27,11 @@ test.GenomicEnrichment <- function() {
     # Make sure the numerical values match:
     # 1a. Genomic coverage
     tssA_coverage_g = sum(width(partition[partition$name=="1_TssA"]))               
-    checkIdentical(coverage_df(test)["1_TssA", "Genome"], tssA_coverage_g)
+    checkTrue(coverage_df(test)["1_TssA", "Genome"] == tssA_coverage_g)
     # 1b. Query coverage
     projected = project_ranges(test_grl[["Test1"]], partition)
     tssA_coverage_q = sum(width(projected[projected$name=="1_TssA"]))
-    checkIdentical(coverage_df(test)["1_TssA", "Test1"], tssA_coverage_q)
+    checkTrue(coverage_df(test)["1_TssA", "Test1"] == tssA_coverage_q)
     
     # 2a. Genomic proportion
     tssA_proportion_g = tssA_coverage_g / sum(width(partition))

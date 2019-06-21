@@ -3,12 +3,12 @@
 \name{intersect_indices}
 \alias{intersect_indices}
 \title{Calculate the intersection of a set of elements within a 
-\linkS4class{GenomicOverlap} object.}
+\linkS4class{GenomicOverlaps} object.}
 \usage{
 intersect_indices(x, indices = names(x), exclusive = FALSE)
 }
 \arguments{
-\item{x}{A \linkS4class{GenomicOverlap} object.}
+\item{x}{A \linkS4class{GenomicOverlaps} object.}
 
 \item{indices}{The names of the elements from \code{x} whose intersection 
 should be found.}
@@ -23,5 +23,5 @@ A vector of the numeric indices of the element of \code{regions(x)}
 }
 \description{
 Calculate the intersection of a set of elements within a 
-\linkS4class{GenomicOverlap} object.
+\linkS4class{GenomicOverlaps} object.
 }

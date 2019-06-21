@@ -3,12 +3,12 @@
 \name{union_indices}
 \alias{union_indices}
 \title{Calculate the union of a set of elements within a 
-\linkS4class{GenomicOverlap} object.}
+\linkS4class{GenomicOverlaps} object.}
 \usage{
 union_indices(x, indices = names(x))
 }
 \arguments{
-\item{x}{A \linkS4class{GenomicOverlap} object.}
+\item{x}{A \linkS4class{GenomicOverlaps} object.}
 
 \item{indices}{The names of the elements from \code{x} whose union 
 should be found.}
@@ -19,5 +19,5 @@ A vector of the numeric indices of the element of \code{regions(x)}
 }
 \description{
 Calculate the union of a set of elements within a 
-\linkS4class{GenomicOverlap} object.
+\linkS4class{GenomicOverlaps} object.
 }

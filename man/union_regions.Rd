@@ -3,12 +3,12 @@
 \name{union_regions}
 \alias{union_regions}
 \title{Calculate the union of a set of elements within a 
-\linkS4class{GenomicOverlap} object.}
+\linkS4class{GenomicOverlaps} object.}
 \usage{
 union_regions(x, indices = names(x))
 }
 \arguments{
-\item{x}{A \linkS4class{GenomicOverlap} object.}
+\item{x}{A \linkS4class{GenomicOverlaps} object.}
 
 \item{indices}{The names of the elements from \code{x} whose union 
 should be found.}
@@ -19,5 +19,5 @@ A \code{GRanges} objects containing the ranges from \code{regions(x)}
 }
 \description{
 Calculate the union of a set of elements within a 
-\linkS4class{GenomicOverlap} object.
+\linkS4class{GenomicOverlaps} object.
 }
