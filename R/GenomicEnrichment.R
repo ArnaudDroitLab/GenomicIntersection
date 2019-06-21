@@ -19,6 +19,7 @@ setClass("GenomicEnrichment",
 #'
 #' @param x The \linkS4class{GenomicEnrichment} object.
 #' @return The names of the elements in \code{x}.
+#' @export
 setMethod("names",
           c(x="GenomicEnrichment"),
           function(x) {
@@ -30,6 +31,7 @@ setMethod("names",
 #' @param x The \linkS4class{GenomicEnrichment} object.
 #' @param value The new names for the elements of the 
 #'              \linkS4class{GenomicEnrichment} object.
+#' @export
 setMethod("names<-",
           c(x="GenomicEnrichment", value="character"),
           function(x, value) {
@@ -41,7 +43,8 @@ setMethod("names<-",
 #' Returns the number of elements of a \linkS4class{GenomicEnrichment} object. 
 #'
 #' @param x The \linkS4class{GenomicEnrichment} object.
-#' @return The number of elements in \code{x}.        
+#' @return The number of elements in \code{x}.   
+#' @export     
 setMethod("length",
           c(x="GenomicEnrichment"),
           function(x) {
@@ -56,10 +59,14 @@ setMethod("length",
 #' @param genome_partition The genome partition indicating which part of the genome
 #'    fall within which category. Each range should have a 'name' attribute
 #'    indicating its category.
-#' @param genome_order An optional ordering of the region types.
 #' @return A data-frame containing the enrichment values.
 #' @import GenomicRanges
-single_region_enrichment <- function(query_regions, genome_partition, genome_order=NULL) {
+#' @export
+single_region_enrichment <- function(query_regions, genome_partition) {
+    stopifnot(is(query_regions, "GRanges"))
+    stopifnot(is(genome_partition, "GRanges"))
+    stopifnot("name" %in% names(mcols(genome_partition)))
+    
     # Project the query ranges into the genome ranges, so we can
     # know their repartition with basepair precision.
     in.query = project_ranges(query_regions, genome_partition)
@@ -84,86 +91,124 @@ single_region_enrichment <- function(query_regions, genome_partition, genome_ord
                                GenomeProportion=proportions[,"Genome"],
                                Enrichment=log2(proportions[,"Query"] / proportions[,"Genome"]), 
                                RegionType=all.region.types)
-    if(is.null(genome_order)) {
-      genome_order = all.region.types
+    name_levels = all.region.types
+    if(is(genome_partition$name, "factor")) {
+        name_levels = levels(genome_partition$name)
     }
-    enrichment.df$RegionType = factor(enrichment.df$RegionType, levels=genome_order)
+    enrichment.df$RegionType = factor(enrichment.df$RegionType, levels=name_levels)
     
     return(enrichment.df)
 }
 
+metric_matrix <- function(x, metric) {
+    stopifnot(is(x, "GenomicEnrichment"))
+    stopifnot(metric %in% c(c("QueryCoverage", "QueryProportion", "Enrichment")))
+    
+    results = do.call(cbind, lapply(x@enrichments, function(y) {y[,metric]}))
+    
+    rownames(results) = rownames(x@enrichments[[1]])
+    
+    results
+}
+
+metric_df <- function(x, metric) {
+    result_matrix = metric_matrix(x, metric)
+    
+    if(metric=="QueryCoverage") {
+        results = cbind(Genome=x@enrichments[[1]]$GenomeCoverage,
+                        result_matrix)
+    } else if(metric=="QueryProportion") {
+        results = cbind(Genome=x@enrichments[[1]]$GenomeProportion,
+                        result_matrix)    
+    } else {
+        results = result_matrix
+    }
+
+    results
+}
+
+partition_levels = function(x) {
+    if(is(x@partition$name, "factor")) {
+        return(levels(x@partition$name))
+    } else {
+        return(sort(unique(x@partition$name)))
+    }
+}
+
 #' Performs region enrichment on a set of regions and returns summarized results.
 #'
-#' @param queries.regions A list of regions whose enrichment ratios must be calculated.
-#' @param genome.regions The genome partition indicating which part of the genome
+#' @param queries_regions A list of regions whose enrichment ratios must be calculated.
+#' @param genome_partition The genome partition indicating which part of the genome
 #'    fall within which category. Each range should have a 'name' attribute
-#' @param factor.order An optional ordering of the region types for the produced plot.
-#' @param file.prefix An optional file name prefix for tables and graphical representation.
-#' @param plot.width The width of any resulting summary plot.
-#' @param plot.height The height of any resulting summary plot.
 #' @param individual.plots If true, produce individual plots as well as combined plots.
-#' @return A list of summarized enrichment metrics.
+#' @return An object of class \linkS4class{GenomicEnrichment}.
 #' @export
-multiple_region_enrichment <- function(queries_regions, genome_partition, query.order=NULL,
-                                       genome_order=NULL) {
+GenomicEnrichment <- function(queries_regions, genome_partition) {
     results=lapply(queries_regions, single_region_enrichment, 
-                   genome_partition=genome_partition, genome_order=genome_order)
-    
-   
-    # Summarize the results and return them.
-    region_enrichment_summary(results, query.order=query.order,
-                              genome.order=genome.order)
+                   genome_partition=genome_partition)
+                              
+    methods::new("GenomicEnrichment",
+                 regions = queries_regions,
+                 partition = genome_partition,
+                 enrichments = results)
 }
 
-#' Performs a summary of region enrichment results.
-#'
-#' @param result.list a list of results returned by region_enrichment.
-#' @param file.prefix An optional file name prefix for tables and graphical representation.
-#' @param genome.regions The genome partition indicating which part of the genome
-#'    fall within which category. Each range should have a 'name' attribute
-#' @param factor.order An optional ordering of the region types for the produced plot.
-#' @param plot.width The width of any resulting plot.
-#' @param plot.height The height of any resulting plot.
-#' @return A list of summarized enrichment metrics.
-#' @importFrom reshape2 melt
 #' @export
-region_enrichment_summary <- function(result.list, query.order=NULL, genome.order=NULL) {
-    # Put all of metrics into a single multidimensional array.
-    metrics = c("QueryCoverage", "QueryProportion", "Enrichment")
-    result.summary = array(dim=c(length(result.list), nrow(result.list[[1]]), 3), 
-                           dimnames=list(names(result.list), rownames(result.list[[1]]), metrics))
-    for(result in names(result.list)) {
-        for(metric in metrics) {
-            result.summary[result, ,metric] = result.list[[result]][,metric]
-        }
-    }
+coverage_df <- function(x) {
+    stopifnot(is(x, "GenomicEnrichment"))
+    return(metric_df(x, "QueryCoverage"))
+}
 
-    # Add genomic/background information where appropriate. Enrichment is a ratio, so it cannot
-    # have genomic/background data.
-    results.data = list(Coverage=rbind(Genome=result.list[[1]]$GenomeCoverage, result.summary[,,"QueryCoverage"]),
-                        Proportion=rbind(Genome=result.list[[1]]$GenomeProportion, result.summary[,,"QueryProportion"]),
-                        Enrichment=result.summary[,,"Enrichment"])
+#' @export
+coverage_plot <- function(x) {
+    plot_genomic_enrichment_metric(x, "Coverage")
+}
 
-    return(list(Data=results.data, Plots=results.plot))
+#' @export
+proportion_df <- function(x) {
+    stopifnot(is(x, "GenomicEnrichment"))
+    return(metric_df(x, "QueryProportion"))
+}
+
+#' @export
+proportion_plot <- function(x) {
+    plot_genomic_enrichment_metric(x, "Proportion")
+}
+
+#' @export
+enrichment_df <- function(x) {
+    stopifnot(is(x, "GenomicEnrichment"))
+    return(metric_df(x, "Enrichment"))
+}
+
+#' @export
+enrichment_plot <- function(x) {
+    plot_genomic_enrichment_metric(x, "Enrichment")
 }
 
 #' @importFrom reshape2 melt
-plot_multiple_region_enrichment <- function(enrichment_results, metric="Enrichment") {
-    result.df = reshape2::melt(enrichment_results[[metric]], varnames=c("Query", "Category"))
-    
-    # Reorder queries
-    if(is.null(query.order)) {
-        query.order = rownames(results.data[[metric]])
+plot_genomic_enrichment_metric <- function(x, metric="Enrichment") {
+    if(metric=="Coverage") {
+        data_df = coverage_df(x)
+    } else if(metric=="Proportion") {
+        data_df = proportion_df(x)
+    } else if(metric=="Enrichment") {
+        data_df = enrichment_df(x)
+    } else {
+        stop("Unrecognized metric ", metric)
     }
-    result.df$Query = factor(result.df$Query, levels=query.order)
-
-    # Reorder categories.
-    if(is.null(genome.order)) {
-        genome.order = colnames(results.data[[metric]])
-    }
-    result.df$Category = factor(result.df$Category, levels=rev(genome.order))
     
-    result = ggplot(result.df, aes(x=Query, y=Category, fill=value)) +
+    plot_df = reshape2::melt(data_df, varnames=c("Category", "Query"))
+    
+    # Reorder queries and categories
+    query_factors = names(x)
+    if(metric != "Enrichment") {
+        query_factors = c("Genome", query_factors)
+    }
+    plot_df$Query = factor(plot_df$Query, levels=query_factors)
+    plot_df$Category = factor(plot_df$Category, levels=rev(partition_levels(x)))
+    
+    result = ggplot(plot_df, aes_string(x="Query", y="Category", fill="value")) +
         geom_tile() +
         theme_bw() +
         theme(axis.line = element_line(colour = "black"),
@@ -190,6 +235,5 @@ plot_multiple_region_enrichment <- function(enrichment_results, metric="Enrichme
         result = result + scale_fill_gradient(low="white", high="red", name=metric)
     }
     
-    
-    ggsave(paste0(file.prefix, " all ", metric, ".pdf"), plot=result, width=plot.width, height=plot.height, limitsize=FALSE)
+    result
 }

@@ -8,8 +8,6 @@ if(FALSE) {
 
 ### }}}
 
-library(GenomicRanges)
-
 test_list = GRangesList(List1=GRanges(c("1:1000-2000:+",
                                         "1:1900-3000:-",
                                         "1:4000-5000:+",
