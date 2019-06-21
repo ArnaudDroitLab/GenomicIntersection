@@ -48,6 +48,4 @@ test.GenomicEnrichment <- function() {
     print(coverage_plot(test))
     print(proportion_plot(test))
     print(enrichment_plot(test))
-    
-    
 }

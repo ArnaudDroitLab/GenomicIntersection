@@ -121,7 +121,7 @@ GenomicOverlaps <- function(grl, import_spec=list()) {
     overlap.matrix <- matrix(0, nrow=length(all_regions), ncol=length(grl))
 
     # Loop over all ranges, intersecting them with the flattened list of all possible regions.
-    for(i in 1:length(grl)) {
+    for(i in seq_along(grl)) {
         overlap.matrix[,i] <- GenomicRanges::countOverlaps(all_regions, grl[[i]], type="any")
     }
     colnames(overlap.matrix) <-  names(grl)

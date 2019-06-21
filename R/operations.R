@@ -25,7 +25,7 @@ project_ranges <- function(query, target) {
     ranges_df = cbind(ranges_df, 
                       mcols(target)[queryHits(hits),], 
                       mcols(query)[subjectHits(hits),])
-    colnames(ranges_df) = c(colnames(ranges_df)[1:4], 
+    colnames(ranges_df) = c(colnames(ranges_df)[seq_len(4)], 
                             colnames(mcols(target)), 
                             colnames(mcols(query)))
     

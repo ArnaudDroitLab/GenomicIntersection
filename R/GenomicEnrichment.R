@@ -1,12 +1,12 @@
 #' GenomicEnrichment objects represent the enrichment of a set of 
 #' genomic regions over a genomic partition.
 #'
-#' Some details about this class and my plans for it in the body.
-#'
-#' @slot regions A GRanges object representing the combined regions.
-#' @slot partition A matrix representing which elements overlap with the combined 
-#'              regions.
-#' @slot enrichments
+#' @slot regions A GRangesList object representing the regions on which 
+#'               enrichment should be computed.
+#' @slot partition A GRanges object representing a partition of the genome
+#'                 to be used as background for the enrichment analysis.
+#' @slot enrichments A list of data-frames representing the enrichment results
+#'                   for each elements of \code{regions}.
 #' @name GenomicEnrichment-class
 #' @rdname GenomicEnrichment-class
 #' @export
@@ -56,11 +56,12 @@ setMethod("length",
 #' partition of the genome.
 #'
 #' @param query_regions The regions whose enrichment ratios must be calculated.
-#' @param genome_partition The genome partition indicating which part of the genome
-#'    fall within which category. Each range should have a 'name' attribute
-#'    indicating its category.
+#' @param genome_partition The genome partition indicating which part of the 
+#'    genome fall within which category. Each range should have a 'name' 
+#'    attribute indicating its category.
 #' @return A data-frame containing the enrichment values.
 #' @import GenomicRanges
+#' @importFrom BiocGenerics width
 #' @export
 single_region_enrichment <- function(query_regions, genome_partition) {
     stopifnot(is(query_regions, "GRanges"))
@@ -100,6 +101,27 @@ single_region_enrichment <- function(query_regions, genome_partition) {
     return(enrichment.df)
 }
 
+#' Performs region enrichment on a set of regions and returns summarized results.
+#'
+#' @param queries_regions A list of regions whose enrichment ratios must be 
+#'                       calculated.
+#' @param genome_partition The genome partition indicating which part of the 
+#'    genome fall within which category. Each range should have a 'name' 
+#'    attribute indicating its category.
+#' @return An object of class \linkS4class{GenomicEnrichment}.
+#' @export
+GenomicEnrichment <- function(queries_regions, genome_partition) {
+    results=lapply(queries_regions, single_region_enrichment, 
+                   genome_partition=genome_partition)
+                              
+    methods::new("GenomicEnrichment",
+                 regions = queries_regions,
+                 partition = genome_partition,
+                 enrichments = results)
+}
+
+# Utility function to extract columns from a GenomicEnrichment object and turn
+# them into a matrix.
 metric_matrix <- function(x, metric) {
     stopifnot(is(x, "GenomicEnrichment"))
     stopifnot(metric %in% c(c("QueryCoverage", "QueryProportion", "Enrichment")))
@@ -111,6 +133,8 @@ metric_matrix <- function(x, metric) {
     results
 }
 
+# Utility function to extract columns from a GenomicEnrichment object and turn
+# them into a data-frame including Genome-wide info, if relevant.
 metric_df <- function(x, metric) {
     result_matrix = metric_matrix(x, metric)
     
@@ -127,63 +151,82 @@ metric_df <- function(x, metric) {
     results
 }
 
-partition_levels = function(x) {
-    if(is(x@partition$name, "factor")) {
-        return(levels(x@partition$name))
-    } else {
-        return(sort(unique(x@partition$name)))
-    }
-}
-
-#' Performs region enrichment on a set of regions and returns summarized results.
+#' Returns a data-frame giving the coverages for all elements of a 
+#' \linkS4class{GenomicEnrichment} object.
 #'
-#' @param queries_regions A list of regions whose enrichment ratios must be calculated.
-#' @param genome_partition The genome partition indicating which part of the genome
-#'    fall within which category. Each range should have a 'name' attribute
-#' @param individual.plots If true, produce individual plots as well as combined plots.
-#' @return An object of class \linkS4class{GenomicEnrichment}.
-#' @export
-GenomicEnrichment <- function(queries_regions, genome_partition) {
-    results=lapply(queries_regions, single_region_enrichment, 
-                   genome_partition=genome_partition)
-                              
-    methods::new("GenomicEnrichment",
-                 regions = queries_regions,
-                 partition = genome_partition,
-                 enrichments = results)
-}
-
+#' @param x A \linkS4class{GenomicEnrichment} object.
+#' @return A data-frame giving genome-wide and per-element coverages in 
+#'         nucleotides.
 #' @export
 coverage_df <- function(x) {
     stopifnot(is(x, "GenomicEnrichment"))
     return(metric_df(x, "QueryCoverage"))
 }
 
+#' Plots the coverages for all elements of a 
+#' \linkS4class{GenomicEnrichment} object.
+#'
+#' @param x A \linkS4class{GenomicEnrichment} object.
+#' @return A plot of genome-wide and per-element coverages in 
+#'         nucleotides.
 #' @export
 coverage_plot <- function(x) {
     plot_genomic_enrichment_metric(x, "Coverage")
 }
 
+#' Returns a data-frame giving the coverage proportions for all elements of a 
+#' \linkS4class{GenomicEnrichment} object.
+#'
+#' @param x A \linkS4class{GenomicEnrichment} object.
+#' @return A data-frame giving genome-wide and per-element coverage proportions 
+#'         in nucleotides.
 #' @export
 proportion_df <- function(x) {
     stopifnot(is(x, "GenomicEnrichment"))
     return(metric_df(x, "QueryProportion"))
 }
 
+#' Plots the coverage proportions for all elements of a 
+#' \linkS4class{GenomicEnrichment} object.
+#'
+#' @param x A \linkS4class{GenomicEnrichment} object.
+#' @return A plot giving genome-wide and per-element coverage proportions 
+#'         in nucleotides.
 #' @export
 proportion_plot <- function(x) {
     plot_genomic_enrichment_metric(x, "Proportion")
 }
 
+#' Returns a data-frame giving the enrichments for all elements of a 
+#' \linkS4class{GenomicEnrichment} object.
+#'
+#' @param x A \linkS4class{GenomicEnrichment} object.
+#' @return A data-frame giving per-element log2-enrichments of all partition 
+#'         categories.
 #' @export
 enrichment_df <- function(x) {
     stopifnot(is(x, "GenomicEnrichment"))
     return(metric_df(x, "Enrichment"))
 }
 
+#' Plots the enrichments for all elements of a 
+#' \linkS4class{GenomicEnrichment} object.
+#'
+#' @param x A \linkS4class{GenomicEnrichment} object.
+#' @return A plot of per-element log2-enrichments of all partition 
+#'         categories.
 #' @export
 enrichment_plot <- function(x) {
     plot_genomic_enrichment_metric(x, "Enrichment")
+}
+
+# Utility function to retrieve the levels/order of the partition categories.
+partition_levels = function(x) {
+    if(is(x@partition$name, "factor")) {
+        return(levels(x@partition$name))
+    } else {
+        return(sort(unique(x@partition$name)))
+    }
 }
 
 #' @import ggplot2
@@ -220,13 +263,12 @@ plot_genomic_enrichment_metric <- function(x, metric="Enrichment") {
               panel.grid.minor = element_blank(),
               panel.border = element_blank(),
               panel.background = element_blank())
-        
 
     # Change text labels depending on the type of data.
     if(metric=="Proportion") {
-        result = result + geom_text(mapping=aes(label=sprintf("%.0f%%", value*100)))
+        result = result + geom_text(mapping=aes_string(label='sprintf("%.0f%%", value*100)'))
     } else if(metric=="Enrichment") {
-        result = result + geom_text(mapping=aes(label=sprintf("%.1f", value)))
+        result = result + geom_text(mapping=aes_string(label='sprintf("%.1f", value)'))
     }
     
     # Change type of scale (two colors or three colors) depending on the type of data.

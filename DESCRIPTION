@@ -11,11 +11,13 @@ Imports:
     ggplot2,
     reshape2,
     S4Vectors,
-    methods
+    methods,
+    BiocGenerics,
+    grid
 Depends:
     R (>= 3.6),
     GenomicRanges
-biocViews: Software
+biocViews: Software, Infrastructure, Coverage, GenomeAnnotation
 License: GPL
 Encoding: UTF-8
 RoxygenNote: 6.1.1
