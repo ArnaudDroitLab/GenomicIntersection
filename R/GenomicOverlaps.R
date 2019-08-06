@@ -45,7 +45,40 @@ setMethod("length",
             ncol(x@matrix)
           })   
 
-# Utility function which aggregates one meta-data clumn from grl and
+setGeneric("combined_regions", function(x, ...) standardGeneric("combined_regions"))
+setGeneric("combined_regions<-", function(x, value) standardGeneric("combined_regions<-"))
+
+#' Returns the combined regions from a \linkS4class{GenomicOverlaps} object.
+#'
+#' @param x The \linkS4class{GenomicOverlaps} object.
+#' @return A \code{GRanges} object representing the combined regions.
+#' @export
+setMethod("combined_regions",
+          c(x="GenomicOverlaps"),
+          function(x) {
+            x@regions
+          })
+
+#' Set the combined regions from a \linkS4class{GenomicOverlaps} object.
+#'
+#' The new region must have the same length as the old one. This is useful
+#' for replacing annotations.
+#' @param x The \linkS4class{GenomicOverlaps} object.
+#' @return A \code{GRanges} object representing the combined regions.
+#' @export
+setMethod("combined_regions<-",
+          c(x="GenomicOverlaps", value="GRanges"),
+          function(x, value) {
+            stopifnot(length(value)==length(x@regions))
+            stopifnot(all(seqnames(x)==seqnames(x@regions)))
+            stopifnot(all(start(x)==start(x@regions)))
+            stopifnot(all(end(x)==end(x@regions)))
+            stopifnot(all(strand(x)==strand(x@regions)))
+            x@regions = value
+            x
+          })
+
+# Utility function which aggregates one meta-data column from grl and
 # returns a data-frame with aggregated values for each element of all_regions.
 import_column <- function(grl, all_regions, col_name, aggregate_func) {
     # Apply import logic to each GRangesList item
@@ -136,17 +169,6 @@ GenomicOverlaps <- function(grl, import_spec=list()) {
     methods::new("GenomicOverlaps",
                  regions=all_regions, 
                  matrix=overlap.matrix)
-}
-          
-#' Returns the combined regions from a \linkS4class{GenomicOverlaps} object.
-#'
-#' @param x The \linkS4class{GenomicOverlaps} object.
-#' @return A \code{GRanges} object representing the combined regions.
-#' @importFrom methods is
-#' @export
-regions <- function(x) {
-    stopifnot(is(x, "GenomicOverlaps"))
-    x@regions
 }
 
 #' Returns the intersection matrix from a \linkS4class{GenomicOverlaps} object.

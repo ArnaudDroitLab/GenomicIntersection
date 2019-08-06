@@ -55,5 +55,7 @@ test.GenomicIntersection <- function() {
     
     checkIdentical(intersect_indices(test, c("List1", "List2", "List3"), exclusive=TRUE), overlap_1 & overlap_2 & overlap_3)        
 
+    mcols(regions(test)) = data.frame(A=seq_along(test), B=seq_along(test)-10)
+
     plot_venn(test)
 }
