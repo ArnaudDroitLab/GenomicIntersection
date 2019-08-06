@@ -10,7 +10,8 @@
 #' @rdname GenomicOverlaps-class
 #' @export
 setClass("GenomicOverlaps",
-         slots=list(regions="GRanges", 
+         slots=list(initial_regions="GRangesList",
+                    regions="GRanges", 
                     matrix="matrix"))
 
 #' Returns the names of the elements of a \linkS4class{GenomicOverlaps} object. 
@@ -70,12 +71,25 @@ setMethod("combined_regions<-",
           c(x="GenomicOverlaps", value="GRanges"),
           function(x, value) {
             stopifnot(length(value)==length(x@regions))
-            stopifnot(all(seqnames(x)==seqnames(x@regions)))
-            stopifnot(all(start(x)==start(x@regions)))
-            stopifnot(all(end(x)==end(x@regions)))
-            stopifnot(all(strand(x)==strand(x@regions)))
+            stopifnot(all(seqnames(value)==seqnames(x@regions)))
+            stopifnot(all(start(value)==start(x@regions)))
+            stopifnot(all(end(value)==end(x@regions)))
+            stopifnot(all(strand(value)==strand(x@regions)))
             x@regions = value
             x
+          })
+
+setGeneric("initial_regions", function(x, ...) standardGeneric("initial_regions"))
+
+#' Returns the initial regions from a \linkS4class{GenomicOverlaps} object.
+#'
+#' @param x The \linkS4class{GenomicOverlaps} object.
+#' @return A \code{GRangesList} object representing the initial regions.
+#' @export
+setMethod("initial_regions",
+          c(x="GenomicOverlaps"),
+          function(x) {
+            x@initial_regions
           })
 
 # Utility function which aggregates one meta-data column from grl and
@@ -167,6 +181,7 @@ GenomicOverlaps <- function(grl, import_spec=list()) {
     }
 
     methods::new("GenomicOverlaps",
+                 initial_regions=grl,
                  regions=all_regions, 
                  matrix=overlap.matrix)
 }
@@ -247,7 +262,7 @@ intersect_indices <- function(x, indices=names(x), exclusive=FALSE) {
 #' @export
 intersect_regions <- function(x, indices=names(x), exclusive=TRUE) {
     res_indices = intersect_indices(x, indices, exclusive)
-    regions(x)[res_indices]
+    combined_regions(x)[res_indices]
 }
 
 #' Calculate the union of a set of elements within a 
@@ -281,7 +296,7 @@ union_indices <- function(x, indices=names(x)) {
 #' @export
 union_regions <- function(x, indices=names(x)) {
     res_indices = union_indices(x, indices)
-    regions(x)[res_indices]
+    combined_regions(x)[res_indices]
 }
 
 #' Determines which regions form a "consensus" from all input regions.

@@ -22,13 +22,16 @@ test.GenomicIntersection <- function() {
     # Build the GenomicIntersection object.
     test = GenomicOverlaps(test_list)
 
+    # Make sure inital_regions is set correctly.
+    checkIdentical(initial_regions(test), test_list)
+
     # Make sure its "dimensions" match the input GRangesList
     checkIdentical(length(test), length(test_list))
     checkIdentical(names(test), names(test_list))
     
     # Make sure the reduced regions are okay.
     reduced_regions = reduce(unlist(test_list))
-    checkIdentical(regions(test), reduced_regions)
+    checkIdentical(combined_regions(test), reduced_regions)
         
     # Test overlap calculations.
     overlap_1 = countOverlaps(reduced_regions, test_list$List1) > 0
@@ -55,7 +58,11 @@ test.GenomicIntersection <- function() {
     
     checkIdentical(intersect_indices(test, c("List1", "List2", "List3"), exclusive=TRUE), overlap_1 & overlap_2 & overlap_3)        
 
-    mcols(regions(test)) = data.frame(A=seq_along(test), B=seq_along(test)-10)
+    replacement_meta = data.frame(A=seq_along(combined_regions(test)),
+                                  B=seq_along(combined_regions(test))-10)
+    mcols(combined_regions(test)) = replacement_meta
+    checkIdentical(mcols(combined_regions(test))$A, replacement_meta$A)
+    checkIdentical(mcols(combined_regions(test))$B, replacement_meta$B)
 
     plot_venn(test)
 }
