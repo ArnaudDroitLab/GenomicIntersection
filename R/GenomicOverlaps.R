@@ -1,7 +1,5 @@
 #' GenomicOverlaps objects represent the overlaps of multiple GRanges.
 #'
-#' Some details about this class and my plans for it in the body.
-#'
 #' @slot regions A GRanges object representing the combined regions.
 #' @slot matrix A matrix representing which elements overlap with the combined 
 #'              regions.
