@@ -5,7 +5,7 @@
 \alias{GenomicOverlaps-class}
 \title{GenomicOverlaps objects represent the overlaps of multiple GRanges.}
 \description{
-Some details about this class and my plans for it in the body.
+GenomicOverlaps objects represent the overlaps of multiple GRanges.
 }
 \section{Slots}{
 

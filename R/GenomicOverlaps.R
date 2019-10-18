@@ -27,6 +27,7 @@ setMethod("names",
 #' @param x The \linkS4class{GenomicOverlaps} object.
 #' @param value The new names for the elements of the 
 #'              \linkS4class{GenomicOverlaps} object.
+#' @return A copy of the object.
 setMethod("names<-",
           c(x="GenomicOverlaps", value="character"),
           function(x, value) {
@@ -64,15 +65,16 @@ setMethod("combined_regions",
 #' for replacing annotations.
 #' @param x The \linkS4class{GenomicOverlaps} object.
 #' @return A \code{GRanges} object representing the combined regions.
+#' @importFrom GenomeInfoDb seqnames
 #' @export
 setMethod("combined_regions<-",
           c(x="GenomicOverlaps", value="GRanges"),
           function(x, value) {
             stopifnot(length(value)==length(x@regions))
-            stopifnot(all(seqnames(value)==seqnames(x@regions)))
-            stopifnot(all(start(value)==start(x@regions)))
-            stopifnot(all(end(value)==end(x@regions)))
-            stopifnot(all(strand(value)==strand(x@regions)))
+            stopifnot(all(GenomeInfoDb::seqnames(value)==GenomeInfoDb::seqnames(x@regions)))
+            stopifnot(all(BiocGenerics::start(value)==BiocGenerics::start(x@regions)))
+            stopifnot(all(BiocGenerics::end(value)==BiocGenerics::end(x@regions)))
+            stopifnot(all(BiocGenerics::strand(value)==BiocGenerics::strand(x@regions)))
             x@regions = value
             x
           })
@@ -106,7 +108,7 @@ import_column <- function(grl, all_regions, col_name, aggregate_func) {
             # index so we can identify which ones have a many-to-one
             # mapping.
             col.values.df <- data.frame(from = S4Vectors::from(indices), 
-                                        value = mcols(x)[[col_name]][S4Vectors::to(indices)])
+                                        value = S4Vectors::mcols(x)[[col_name]][S4Vectors::to(indices)])
     
             # Apply the summarizing function to all groups of values
             # with the same target region.
@@ -148,7 +150,7 @@ import_column <- function(grl, all_regions, col_name, aggregate_func) {
 #'                    column.
 #' @return An object of class \code{GenomicOverlaps}.
 #' @importFrom GenomicRanges reduce
-#' @importFrom GenomicRanges mcols
+#' @importFrom S4Vectors mcols
 #' @importFrom methods is
 #' @importMethodsFrom GenomicRanges countOverlaps findOverlaps
 #' @importMethodsFrom S4Vectors from to aggregate
@@ -157,7 +159,7 @@ GenomicOverlaps <- function(grl, import_spec=list()) {
     # Validate input parameters.
     stopifnot(is(grl, "GRangesList"))
     stopifnot(is(import_spec, "list"))
-    stopifnot(all(names(import_spec) %in% names(mcols(grl))))
+    stopifnot(all(names(import_spec) %in% names(S4Vectors::mcols(grl))))
     
     # Flatten the GRangesList so we can get a list of all possible regions.
     all_regions = GenomicRanges::reduce(unlist(grl))
@@ -175,7 +177,7 @@ GenomicOverlaps <- function(grl, import_spec=list()) {
     for(col_name in names(import_spec)) {
         col_df = import_column(grl, all_regions, col_name, import_spec[[col_name]])
         
-        mcols(all_regions) <- cbind(mcols(all_regions), col_df)
+        S4Vectors::mcols(all_regions) <- cbind(S4Vectors::mcols(all_regions), col_df)
     }
 
     methods::new("GenomicOverlaps",
@@ -302,15 +304,21 @@ union_regions <- function(x, indices=names(x)) {
 #' @param x A \linkS4class{GenomicOverlaps} object.
 #' @param consensus_threshold The fraction of input regions which must have
 #'                            a given region for it to be selected.
+#' @param consensus_threshold_n The absolute number of input regions which must 
+#'                              have a given region for it to be selected.
 #' @return A vector of the numeric indices of the element of \code{regions(x)} 
 #'         which fit the given criteria.
 #' @importFrom methods is
 #' @export
-consensus_indices <- function(x, consensus_threshold) {
+consensus_indices <- function(x, consensus_threshold=1, consensus_threshold_n=NULL) {
     stopifnot(is(x, "GenomicOverlaps"))
     stopifnot(is(consensus_threshold, "numeric"))
     
-    return((rowSums(x@matrix) / length(x)) > consensus_threshold)
+    if(is.null(consensus_threshold_n)) {
+        return((rowSums(x@matrix > 0) / length(x)) >= consensus_threshold)
+    } else {
+        return(rowSums(x@matrix > 0) >= consensus_threshold_n)
+    }
 }
 
 #' Determines which regions form a "consensus" from all input regions.
@@ -318,11 +326,13 @@ consensus_indices <- function(x, consensus_threshold) {
 #' @param x A \linkS4class{GenomicOverlaps} object.
 #' @param consensus_threshold The fraction of input regions which must have
 #'                            a given region for it to be selected.
+#' @param consensus_threshold_n The absolute number of input regions which must 
+#'                              have a given region for it to be selected.
 #' @return A \code{GRanges} objects containing the ranges from \code{regions(x)} 
 #'         which fit the given criteria.
 #' @importFrom methods is
 #' @export
-consensus_regions <- function(x, consensus_threshold) {
+consensus_regions <- function(x, consensus_threshold=1, consensus_threshold_n=NULL) {
     stopifnot(is(x, "GenomicOverlaps"))
     res_indices = consensus_indices(x, consensus_threshold)
     
